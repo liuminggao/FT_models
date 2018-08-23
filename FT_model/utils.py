@@ -9,6 +9,9 @@ DEFAULT_TFMS = dict(rotation_range=20.0,
 
 
 def get_train_batches(path, target_size, batch_size=32, shuffle=True, tfms=None):
-    gen = preprocessing.image.ImageDataGenerator(**tfms)
+    if tfms is not None:
+        gen = preprocessing.image.ImageDataGenerator(**tfms)
+    else:
+        gen = preprocessing.image.ImageDataGenerator(tfms)
     batches = gen.flow_from_directory(path, target_size=target_size, batch_size=batch_size, shuffle=shuffle)
     return gen, batches
