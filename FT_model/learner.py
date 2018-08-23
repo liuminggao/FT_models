@@ -66,7 +66,6 @@ class FTConvLearner:
 
         self.use_model_name = use_model_name
         self.target_size = target_size
-        self.batch_size = batch_size
         self.class_indices = class_indices
 
         self.optimizer = 'adam' if not optimizer else optimizer
