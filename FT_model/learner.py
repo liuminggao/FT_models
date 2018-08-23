@@ -10,8 +10,10 @@ def build_xception_feature_extraction(target_size, class_indices, freeze=True):
                                                 pooling='avg')
     inputs = layers.Input(shape=(target_size[0], target_size[1], 3))
     x = inputs
-    x = layers.Lambda(applications.xception.preprocess_input)(x)
-    x = base_model(x)
+    # Lambda layer can make preprocess conviencely. unfortunately, it will get error when `load_model` stage
+    # Solution: https://github.com/keras-team/keras/issues/8734#issuecomment-382602236
+    # x = layers.Lambda(applications.xception.preprocess_input)(x)
+    x = base_model(inputs)
     x = layers.Dense(len(class_indices), activation='softmax')(x)
     model = models.Model(inputs, x)
     if freeze:
@@ -21,31 +23,29 @@ def build_xception_feature_extraction(target_size, class_indices, freeze=True):
     return model, base_model
 
 
-def build_vgg16_feature_extraction(target_size, class_indices, freeze=True, is_classification=True):
-    """Create feature extraction with VGG16"""
-    base_model = applications.vgg16.VGG16(include_top=False, weights='imagenet',
-                                          input_shape=(target_size[0], target_size[1], 3))
-    inputs = layers.Input(shape=(target_size[0], target_size[1], 3))
-    x = inputs
-    x = layers.Lambda(applications.xception.preprocess_input)(x)
-    x = base_model(x)
-    x = layers.Flatten()(x)
-    x = layers.Dense(1024, activation='relu')(x)
-    x = layers.Dense(1024, activation='relu')(x)
-    x = layers.Dense(len(class_indices), activation='softmax')(x)
-    model = models.Model(inputs, x)
-    if freeze:
-        # freeze the weights already trained on ImageNet
-        for layer in base_model.layers:
-            layer.trainable = False
-    return model, base_model
+# def build_vgg16_feature_extraction(target_size, class_indices, freeze=True, is_classification=True):
+#     """Create feature extraction with VGG16"""
+#     base_model = applications.vgg16.VGG16(include_top=False, weights='imagenet',
+#                                           input_shape=(target_size[0], target_size[1], 3))
+#     inputs = layers.Input(shape=(target_size[0], target_size[1], 3))
+#     x = inputs
+#     x = layers.Lambda(applications.xception.preprocess_input)(x)
+#     x = base_model(x)
+#     x = layers.Flatten()(x)
+#     x = layers.Dense(1024, activation='relu')(x)
+#     x = layers.Dense(1024, activation='relu')(x)
+#     x = layers.Dense(len(class_indices), activation='softmax')(x)
+#     model = models.Model(inputs, x)
+#     if freeze:
+#         # freeze the weights already trained on ImageNet
+#         for layer in base_model.layers:
+#             layer.trainable = False
+#     return model, base_model
 
 
 def choice_build_fn(model_name):
     if model_name.lower() == 'xception':
         return build_xception_feature_extraction
-    elif model_name.lower() == 'vgg16':
-        return build_vgg16_feature_extraction
     else:
         raise RuntimeError()
 
@@ -54,7 +54,7 @@ class FTConvLearner:
 
     # TODO: Supoort regression problems
 
-    def __init__(self, model_name, class_indices, target_size=(224, 224), optimizer=None, loss=None, metrics=None):
+    def __init__(self, class_indices, init=True, use_model_name='xception', target_size=(224, 224), optimizer=None, loss=None, metrics=None):
         """"
             model_name, str: 
                               which model to choice
@@ -63,16 +63,26 @@ class FTConvLearner:
                               like: {'dog': 0, 'cat': 1}
         """
 
-        self.model_name = model_name
+        self.use_model_name = use_model_name
         self.target_size = target_size
         self.class_indices = class_indices
-
-        self.build_fn = choice_build_fn(model_name)
-        self.model, self.base_model = self.build_fn(target_size=target_size, class_indices=class_indices)
 
         self.optimizer = 'adam' if not optimizer else optimizer
         self.loss = 'categorical_crossentropy' if not loss else loss
         self.metrics = ['accuracy'] if not metrics else metrics
+
+        self.model, self.base_model = None, None
+        if init:
+            self._init_model()
+
+    def _init_model(self):
+        self.build_fn = choice_build_fn(self.use_model_name)
+        self.model, self.base_model = self.build_fn(target_size=self.target_size, class_indices=self.class_indices)
+
+    def _build_model(self):
+        if self.model is None:
+            raise RuntimeError()
+        self.model.compile(self.optimizer, self.loss, self.metrics)
 
     def unfreeze(self):
         self.unfreeze_to(0)
@@ -84,13 +94,19 @@ class FTConvLearner:
             layer.trainable = True
         self._build_model()
 
-    def _build_model(self):
-        if self.model is None:
-            raise RuntimeError()
-        self.model.compile(self.optimizer, self.loss, self.metrics)
+    def save(self, model_path, weight_path):
+        with open(model_path, 'wt') as f:
+            f.write(self.model.to_json())
+        self.model.save_weights(weight_path)
+
+    def load(self, model_path, weight_path):
+        with open(model_path, 'rt') as f:
+            json_string = f.read()
+        self.model =  models.model_from_json(json_string)
+        self.model.load_weights(weight_path)
 
     def __str__(self):
-        return 'Fine Tuning Model ({})'.format(self.model_name)
+        return 'Fine Tuning Model ({})'.format(self.use_model_name)
 
     def __repr__(self):
-        return 'Fine Tuning Model ({})'.format(self.model_name)
+        return 'Fine Tuning Model ({})'.format(self.use_model_name)
