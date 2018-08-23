@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 from keras import applications, layers, models
 
 
@@ -74,6 +75,7 @@ class FTConvLearner:
         self.model, self.base_model = None, None
         if init:
             self._init_model()
+            self._build_model()
 
     def _init_model(self):
         self.build_fn = choice_build_fn(self.use_model_name)
@@ -95,6 +97,8 @@ class FTConvLearner:
         self._build_model()
 
     def save(self, model_path, weight_path):
+        os.makedirs(model_path, exist_ok=True)
+        os.makedirs(weight_path, exist_ok=True)
         with open(model_path, 'wt') as f:
             f.write(self.model.to_json())
         self.model.save_weights(weight_path)
