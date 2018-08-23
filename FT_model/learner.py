@@ -55,7 +55,7 @@ class FTConvLearner:
 
     # TODO: Supoort regression problems
 
-    def __init__(self, class_indices, init=True, use_model_name='xception', target_size=(224, 224), optimizer=None, loss=None, metrics=None):
+    def __init__(self, class_indices, batch_size, init=True, use_model_name='xception', target_size=(224, 224), optimizer=None, loss=None, metrics=None):
         """"
             model_name, str: 
                               which model to choice
@@ -66,6 +66,7 @@ class FTConvLearner:
 
         self.use_model_name = use_model_name
         self.target_size = target_size
+        self.batch_size = batch_size
         self.class_indices = class_indices
 
         self.optimizer = 'adam' if not optimizer else optimizer
@@ -95,6 +96,10 @@ class FTConvLearner:
         for layer in self.base_model.layers[n:]:
             layer.trainable = True
         self._build_model()
+
+    def finetuning(self, batches, valid_batches):
+        self.model.fit_generator(batches, steps_per_epoch=batches.n // self.batch_size,
+                                 validation_data=valid_batches, validation_steps=valid_batches.n // self.batch_size)
 
     def save(self, model_path, weight_path):
         os.makedirs(model_path, exist_ok=True)
