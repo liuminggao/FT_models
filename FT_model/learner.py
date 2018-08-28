@@ -117,7 +117,7 @@ class FTConvLearner:
         self.model.load_weights(weight_path)
 
     def predict_g(self, batches):
-        y_prob = self.model.predict_genenrator(batches)
+        y_prob = self.model.predict_generator(batches)
         y_pred = np.argmax(y_prob, axis=1)
         return y_prob, y_pred
 
