@@ -8,7 +8,7 @@ DEFAULT_TFMS = dict(rotation_range=20.0,
                     zoom_range=0.2)
 
 
-def get_train_batches(path, target_size, batch_size=32, shuffle=True, tfms=None):
+def get_batches(path, target_size, batch_size=32, shuffle=True, tfms=None):
     if tfms is not None:
         gen = preprocessing.image.ImageDataGenerator(**tfms)
     else:

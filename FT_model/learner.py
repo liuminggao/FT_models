@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os
+
+import numpy as np
 from keras import applications, layers, models
 
 
@@ -113,6 +115,11 @@ class FTConvLearner:
             json_string = f.read()
         self.model =  models.model_from_json(json_string)
         self.model.load_weights(weight_path)
+
+    def predict_g(self, batches):
+        y_prob = self.model.predict_genenrator(batches)
+        y_pred = np.argmax(y_prob, axis=1)
+        return y_prob, y_pred
 
     def __str__(self):
         return 'Fine Tuning Model ({})'.format(self.use_model_name)
