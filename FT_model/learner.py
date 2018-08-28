@@ -3,7 +3,11 @@
 import os
 
 import numpy as np
-from keras import applications, layers, models
+import tensorflow as tf
+from keras import applications, layers
+# fix keras model to Estimator bug
+# https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
+from tensorflow.python.keras._impl.keras import models
 
 
 def build_xception_feature_extraction(target_size, class_indices, freeze=True):
@@ -112,13 +116,17 @@ class FTConvLearner:
     def load(self, path):
         with open(os.path.join(path, 'model.json'), 'rt') as f:
             json_string = f.read()
-        self.model =  models.model_from_json(json_string)
+        self.model = models.model_from_json(json_string)
         self.model.load_weights(os.path.join(path, 'model.h5'))
+        self._build_model()
 
     def predict_g(self, batches):
         y_prob = self.model.predict_generator(batches)
         y_pred = np.argmax(y_prob, axis=1)
         return y_prob, y_pred
+
+    def to_estimator(self):
+        return tf.keras.estimator.model_to_estimator(keras_model=self.model)
 
     def __str__(self):
         return 'Fine Tuning Model ({})'.format(self.use_model_name)
