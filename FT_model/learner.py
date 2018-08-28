@@ -103,9 +103,10 @@ class FTConvLearner:
         self._build_model()
 
     def finetuning(self, batches, valid_batches, epochs):
-        self.model.fit_generator(batches, steps_per_epoch=batches.n // batches.batch_size,
-                                 validation_data=valid_batches, validation_steps=valid_batches.n // valid_batches.batch_size,
-                                 epochs=epochs)
+        with tf.Session() as sess:
+            self.model.fit_generator(batches, steps_per_epoch=batches.n // batches.batch_size,
+                                     validation_data=valid_batches, validation_steps=valid_batches.n // valid_batches.batch_size,
+                                     epochs=epochs)
 
     def save(self, path):
         os.makedirs(path)
