@@ -99,7 +99,6 @@ def gen_dataset(cls2dics, path, val_rate=0.15, tst_rate=0.05, need_proc=False, t
                 if not im:
                     continue
                 im.save(d_p / f)
-                os.remove(s_p / f)
                 del im
             else:
                 shutil.copy(s_p / f, d_p / f)
