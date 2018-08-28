@@ -103,18 +103,17 @@ class FTConvLearner:
                                  validation_data=valid_batches, validation_steps=valid_batches.n // valid_batches.batch_size,
                                  epochs=epochs)
 
-    def save(self, model_path, weight_path):
-        os.makedirs(model_path, exist_ok=True)
-        os.makedirs(weight_path, exist_ok=True)
-        with open(model_path, 'wt') as f:
+    def save(self, path):
+        os.makedirs(path)
+        with open(os.path.join(path, 'model.json'), 'wt') as f:
             f.write(self.model.to_json())
-        self.model.save_weights(weight_path)
+        self.model.save_weights(os.path.join(path, 'model.h5'))
 
-    def load(self, model_path, weight_path):
-        with open(model_path, 'rt') as f:
+    def load(self, path):
+        with open(os.path.join(path, 'model.json'), 'rt') as f:
             json_string = f.read()
         self.model =  models.model_from_json(json_string)
-        self.model.load_weights(weight_path)
+        self.model.load_weights(os.path.join(path, 'model.h5'))
 
     def predict_g(self, batches):
         y_prob = self.model.predict_generator(batches)
