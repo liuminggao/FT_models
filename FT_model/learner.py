@@ -111,7 +111,7 @@ class FTConvLearner:
                                  epochs=epochs)
 
     def save(self, path):
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, 'model.json'), 'wt') as f:
             f.write(self.model.to_json())
         self.model.save_weights(os.path.join(path, 'model.h5'))
