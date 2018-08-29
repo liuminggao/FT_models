@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import tensorflow as tf
 from keras import preprocessing
 from keras.applications import xception
@@ -20,9 +21,26 @@ def get_batches(path, target_size, batch_size=32, shuffle=True, tfms=None):
     return batches
 
 
-def _export_estimator(est_model, name, shape, save_dir):
-    feature_columns = [tf.feature_column.numeric_column(name, shape, normalizer_fn=xception.preprocess_input)]
+def export_estimator(est_model, input_name, input_shape, save_dir):
+    feature_columns = [tf.feature_column.numeric_column(input_name, input_shape, normalizer_fn=xception.preprocess_input)]
     feature_spec = tf.feature_column.make_parse_example_spec(feature_columns)
     fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec=feature_spec)
     est_model.export_savedmodel(save_dir, serving_input_receiver_fn=fn)
     print('[INO] Estimator 模型保存成功.... [INFO]')
+
+
+def to_estimator(self, path='./models/'):
+    """
+        # fixme  
+    """
+    # fix keras model to Estimator bug
+    # https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
+    from tensorflow.python.keras._impl.keras import models
+
+    with open(os.path.join(path, 'model.json'), 'rt') as f:
+        json_string = f.read()
+    self.model = models.model_from_json(json_string)
+    self.model.load_weights(os.path.join(path, 'model.h5'))
+    self._build_model()
+    est_model = tf.keras.estimator.model_to_estimator(self.model, model_dir='./est_models/')
+    return est_model

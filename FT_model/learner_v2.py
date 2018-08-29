@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import os
 import numpy as np
+import tensorflow as tf
 from keras import applications, layers, models
 
 
@@ -63,22 +65,34 @@ def finetuning(model, batches):
     return base_model, model
 
 
-def fit_g(model, batches, valid_batches, epochs, callbacks=None):
-    """模型训练
-    
-       args:
-           model：keras model
-           batches: keras DirectoryIterator
-           valid_batches: keras DirectoryIterator
-    """
+def fit_d(model, batches, valid_batches, epochs, callbacks=None):
+    """模型训练"""
     model.fit_generator(batches, steps_per_epoch=batches.n // batches.batch_size,
                         validation_data=valid_batches, validation_steps=valid_batches.n // valid_batches.batch_size,
                         epochs=epochs, callbacks=callbacks)
 
 
-def predict_g(model, batches):
+def predict_d(model, batches):
     """模型预测"""
     y_prob = model.predict_generator(batches)
     y_pred = np.argmax(y_prob, axis=1)
     return y_prob, y_pred
+
+
+def save_d(model, path='./models'):
+    """模型保存"""
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, 'model.json'), 'wt') as f:
+        f.write(model.to_json())
+    model.save_weights(os.path.join(path, 'model.h5'))
+
+
+def load_d(path='./models'):
+    """模型加载"""
+    with open(os.path.join(path, 'model.json'), 'rt') as f:
+        json_string = f.read()
+    model = models.model_from_json(json_string)
+    model.load_weights(os.path.join(path, 'model.h5'))
+    build_model(model)
+
 
