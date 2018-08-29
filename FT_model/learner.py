@@ -4,18 +4,18 @@ import os
 
 import numpy as np
 import tensorflow as tf
-from keras import applications, layers
+from keras import applications, layers, models
 # fix keras model to Estimator bug
 # https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
-from tensorflow.python.keras._impl.keras import models
+# from tensorflow.python.keras._impl.keras import models
 
 
-def build_xception_feature_extraction(target_size, class_indices, freeze=True):
+def build_xception_feature_extraction(target_size, class_indices, freeze=True, input_name='img_input'):
     """Create feature extraction with Xception"""
     base_model = applications.xception.Xception(include_top=False, weights='imagenet',
                                                 input_shape=(target_size[0], target_size[1], 3),
                                                 pooling='avg')
-    inputs = layers.Input(shape=(target_size[0], target_size[1], 3))
+    inputs = layers.Input(shape=(target_size[0], target_size[1], 3), name=input_name)
     x = inputs
     # Lambda layer can make preprocess conviencely. unfortunately, it will get error when `load_model` stage
     # Solution: https://github.com/keras-team/keras/issues/8734#issuecomment-382602236
@@ -61,7 +61,7 @@ class FTConvLearner:
 
     # TODO: Supoort regression problems
 
-    def __init__(self, class_indices, init=True, use_model_name='xception', target_size=(224, 224), optimizer=None, loss=None, metrics=None):
+    def __init__(self, class_indices, init=True, use_model_name='xception', shape=(224, 224, 3), optimizer=None, loss=None, metrics=None):
         """"
             model_name, str: 
                               which model to choice
@@ -71,8 +71,11 @@ class FTConvLearner:
         """
 
         self.use_model_name = use_model_name
-        self.target_size = target_size
+        self.shape = shape
+        self.target_size = (shape[0], shape[1])
         self.class_indices = class_indices
+        # 导出 Estimator 的时候需要
+        self.input_name = 'img_input'
 
         self.optimizer = 'adam' if not optimizer else optimizer
         self.loss = 'categorical_crossentropy' if not loss else loss
@@ -126,7 +129,19 @@ class FTConvLearner:
         return y_prob, y_pred
 
     def to_estimator(self):
-        return tf.keras.estimator.model_to_estimator(keras_model=self.model)
+        """
+            # TODO: 简单权重文件是否存在
+        """
+        from tensorflow.python.keras._impl.keras import models
+
+        path = './models/'
+        with open(os.path.join(path, 'model.json'), 'rt') as f:
+            json_string = f.read()
+        self.model = models.model_from_json(json_string)
+        self.model.load_weights(os.path.join(path, 'model.h5'))
+        self._build_model()
+        est_model = tf.keras.estimator.model_to_estimator(self.model, model_dir='./est_models/')
+        return est_model
 
     def __str__(self):
         return 'Fine Tuning Model ({})'.format(self.use_model_name)
