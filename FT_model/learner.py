@@ -5,9 +5,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from keras import applications, layers, models
-# fix keras model to Estimator bug
-# https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
-# from tensorflow.python.keras._impl.keras import models
+from keras.applications import imagenet_utils
 
 
 def build_xception_feature_extraction(target_size, class_indices, freeze=True, input_name='img_input'):
@@ -19,8 +17,8 @@ def build_xception_feature_extraction(target_size, class_indices, freeze=True, i
     x = inputs
     # Lambda layer can make preprocess conviencely. unfortunately, it will get error when `load_model` stage
     # Solution: https://github.com/keras-team/keras/issues/8734#issuecomment-382602236
-    # x = layers.Lambda(applications.xception.preprocess_input)(x)
-    x = base_model(inputs)
+    # x = layers.Lambda(applications.xception.preprocess_input)(inputs)
+    x = base_model(x)
     x = layers.Dense(len(class_indices), activation='softmax')(x)
     model = models.Model(inputs, x)
     if freeze:
@@ -132,6 +130,8 @@ class FTConvLearner:
         """
             # TODO: 简单权重文件是否存在
         """
+        # fix keras model to Estimator bug
+        # https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
         from tensorflow.python.keras._impl.keras import models
 
         path = './models/'

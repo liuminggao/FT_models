@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 import tensorflow as tf
 from keras import preprocessing
 from keras.applications import xception
@@ -15,13 +14,13 @@ def get_batches(path, target_size, batch_size=32, shuffle=True, tfms=None):
     if tfms is not None:
         gen = preprocessing.image.ImageDataGenerator(**tfms, preprocessing_function=xception.preprocess_input)
     else:
-        gen = preprocessing.image.ImageDataGenerator(tfms, preprocessing_function=xception.preprocess_input)
+        gen = preprocessing.image.ImageDataGenerator(preprocessing_function=xception.preprocess_input)
     batches = gen.flow_from_directory(path, target_size=target_size, batch_size=batch_size, shuffle=shuffle)
     return batches
 
 
 def _export_estimator(est_model, name, shape, save_dir):
-    feature_columns = [tf.feature_column.numeric_column(name, shape)]
+    feature_columns = [tf.feature_column.numeric_column(name, shape, normalizer_fn=xception.preprocess_input)]
     feature_spec = tf.feature_column.make_parse_example_spec(feature_columns)
     fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec=feature_spec)
     est_model.export_savedmodel(save_dir, serving_input_receiver_fn=fn)
