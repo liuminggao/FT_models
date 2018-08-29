@@ -4,6 +4,7 @@ import tensorflow as tf
 from keras import preprocessing
 from keras.applications import xception
 
+# FIXME 这个如何暴露给外边？
 DEFAULT_TFMS = dict(rotation_range=20.0,
                     width_shift_range=0.1,
                     height_shift_range=0.1,

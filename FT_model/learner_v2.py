@@ -44,8 +44,11 @@ def finetuning(model, batches):
     """根据我们给的数据对模型网络进行更改
        
        args:
-           model: keras model
-           batches: keras DirectoryIterator
+            model: keras model
+            batches: keras DirectoryIterator
+        returns:
+            base_model: keras model, 作为 feature extractor返回
+            model: keras model
     """
     n_classes = len(batches.class_indices)
     base_model = model
@@ -55,9 +58,9 @@ def finetuning(model, batches):
     inputs = base_model.inputs
     x = base_model(inputs)
     x = layers.Dense(n_classes, activation='softmax')(x)
-    model = models.Model([inputs], [x])
+    model = models.Model(inputs, x)
     build_model(model)
-    return model
+    return base_model, model
 
 
 def fit_g(model, batches, valid_batches, epochs, callbacks=None):
