@@ -158,11 +158,11 @@ def gen_dataset(cls2dics, path, val_rate=0.15, tst_rate=0.05, need_proc=False, t
                 shutil.copy(s_p / f, d_p / f)
             count += 1
 
-    # 训练集中每个类目的数量需要减去验证集和测试集拿走的数量
     df = pd.DataFrame([trn_cat_counts, val_cat_counts, tst_cat_counts])
     df.index = ['train', 'valid', 'test']
     print('[INFO]下面是数据集size情况......[INFO]')
     print(df)
+    return df
 
 
 def open_img_with_proc(f, target_size=None):
