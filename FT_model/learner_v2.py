@@ -4,7 +4,7 @@ import numpy as np
 from keras import applications, layers, models
 
 
-def _build_model(model):
+def build_model(model):
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 
@@ -36,7 +36,7 @@ def pretrained_model(arch, input_shape=(224, 224, 3)):
         model = applications.InceptionV3(include_top=True, weights='imagenet', input_shape=input_shape)
     else:
         raise ValueError('使用以下网络结构 \n{}\n'.format(arch_set))
-    _build_model(model)
+    build_model(model)
     return model
 
 
@@ -56,7 +56,7 @@ def finetuning(model, batches):
     x = base_model(inputs)
     x = layers.Dense(n_classes, activation='softmax')(x)
     model = models.Model([inputs], [x])
-    _build_model(model)
+    build_model(model)
     return model
 
 
