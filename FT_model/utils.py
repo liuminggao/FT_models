@@ -5,6 +5,8 @@ import tensorflow as tf
 from keras import preprocessing
 from keras.applications import xception
 
+from FT_model.learner_v2 import build_model
+
 # FIXME 这个如何暴露给外边？
 DEFAULT_TFMS = dict(rotation_range=20.0,
                     width_shift_range=0.1,
@@ -39,8 +41,8 @@ def to_estimator(self, path='./models/'):
 
     with open(os.path.join(path, 'model.json'), 'rt') as f:
         json_string = f.read()
-    self.model = models.model_from_json(json_string)
-    self.model.load_weights(os.path.join(path, 'model.h5'))
-    self._build_model()
-    est_model = tf.keras.estimator.model_to_estimator(self.model, model_dir='./est_models/')
+    model = models.model_from_json(json_string)
+    model.load_weights(os.path.join(path, 'model.h5'))
+    build_model(model)
+    est_model = tf.keras.estimator.model_to_estimator(model, model_dir='./est_models/')
     return est_model

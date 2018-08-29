@@ -13,16 +13,16 @@ def build_model(model):
 def pretrained_model(arch, input_shape=(224, 224, 3)):
     """
          返回对应在 ImageNet 训练好的网络模型
-         
+
          args:
              arch: str, 模型名字, 
                         eg: 'xception'
              input_shape, tuple, 模型输入维度, 
                         eg: (224, 224, 3)
-                        
+
          return:
               model, keras model, 一个没有被freeze的网络模型
-            
+
     """
     arch = arch.lower()
     arch_set = {'xception', 'vgg16', 'vgg19', 'resnet50', 'inception_v3'}
@@ -44,7 +44,7 @@ def pretrained_model(arch, input_shape=(224, 224, 3)):
 
 def finetuning(model, batches):
     """根据我们给的数据对模型网络进行更改
-       
+
        args:
             model: keras model
             batches: keras DirectoryIterator
@@ -53,16 +53,17 @@ def finetuning(model, batches):
             model: keras model
     """
     n_classes = len(batches.class_indices)
-    base_model = model
     # 将最后一层输出层丢弃
-    base_model.layers.pop(-1)
-
-    inputs = base_model.inputs
-    x = base_model(inputs)
+    for layer in model.layers:
+        layer.trainable = False
+    model.layers.pop(-1)
+    _input = model.input
+    # 不能使用 model.output
+    x = model.layers[-1].output
     x = layers.Dense(n_classes, activation='softmax')(x)
-    model = models.Model(inputs, x)
-    build_model(model)
-    return base_model, model
+    ftmodel = models.Model(inputs=[_input], outputs=[x])
+    build_model(ftmodel)
+    return ftmodel
 
 
 def fit_d(model, batches, valid_batches, epochs, callbacks=None):
@@ -93,6 +94,5 @@ def load_d(path='./models'):
         json_string = f.read()
     model = models.model_from_json(json_string)
     model.load_weights(os.path.join(path, 'model.h5'))
-    build_model(model)
 
 
