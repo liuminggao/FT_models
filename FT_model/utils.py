@@ -5,9 +5,9 @@ import tensorflow as tf
 from keras import preprocessing
 from keras.applications import xception
 
-from FT_model.learner_v2 import build_model
+from learner import build_model
 
-# FIXME 这个如何暴露给外边？
+#  这个如何暴露给外边？
 DEFAULT_TFMS = dict(rotation_range=20.0,
                     width_shift_range=0.1,
                     height_shift_range=0.1,
@@ -33,7 +33,6 @@ def export_estimator(est_model, input_name, input_shape, save_dir):
 
 def to_estimator(self, path='./models/'):
     """
-        # fixme  
     """
     # fix keras model to Estimator bug
     # https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
@@ -44,5 +43,5 @@ def to_estimator(self, path='./models/'):
     model = models.model_from_json(json_string)
     model.load_weights(os.path.join(path, 'model.h5'))
     build_model(model)
-    est_model = tf.keras.estimator.model_to_estimator(model, model_dir='./est_models/')
+    est_model = tf.keras.estimator.model_to_estimator(model)
     return est_model

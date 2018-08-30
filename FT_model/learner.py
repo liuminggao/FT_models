@@ -1,150 +1,100 @@
 # -*- coding: utf-8 -*-
 
-import os
+# -*- coding: utf-8 -*-
 
+import os
 import numpy as np
 import tensorflow as tf
 from keras import applications, layers, models
-from keras.applications import imagenet_utils
 
 
-def build_xception_feature_extraction(target_size, class_indices, freeze=True, input_name='img_input'):
-    """Create feature extraction with Xception"""
-    base_model = applications.xception.Xception(include_top=False, weights='imagenet',
-                                                input_shape=(target_size[0], target_size[1], 3),
-                                                pooling='avg')
-    inputs = layers.Input(shape=(target_size[0], target_size[1], 3), name=input_name)
-    x = inputs
-    # Lambda layer can make preprocess conviencely. unfortunately, it will get error when `load_model` stage
-    # Solution: https://github.com/keras-team/keras/issues/8734#issuecomment-382602236
-    # x = layers.Lambda(applications.xception.preprocess_input)(inputs)
-    x = base_model(x)
-    x = layers.Dense(len(class_indices), activation='softmax')(x)
-    model = models.Model(inputs, x)
-    if freeze:
-        # freeze the weights already trained on ImageNet
-        for layer in base_model.layers:
-            layer.trainable = False
-    return model, base_model
+def build_model(model):
+    # 暂时直接使用 Adaptive Learning rate 的策略
+    # TODO: 增加 shedule
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 
-# def build_vgg16_feature_extraction(target_size, class_indices, freeze=True, is_classification=True):
-#     """Create feature extraction with VGG16"""
-#     base_model = applications.vgg16.VGG16(include_top=False, weights='imagenet',
-#                                           input_shape=(target_size[0], target_size[1], 3))
-#     inputs = layers.Input(shape=(target_size[0], target_size[1], 3))
-#     x = inputs
-#     x = layers.Lambda(applications.xception.preprocess_input)(x)
-#     x = base_model(x)
-#     x = layers.Flatten()(x)
-#     x = layers.Dense(1024, activation='relu')(x)
-#     x = layers.Dense(1024, activation='relu')(x)
-#     x = layers.Dense(len(class_indices), activation='softmax')(x)
-#     model = models.Model(inputs, x)
-#     if freeze:
-#         # freeze the weights already trained on ImageNet
-#         for layer in base_model.layers:
-#             layer.trainable = False
-#     return model, base_model
+def pretrained_model(arch_name, input_shape=(224, 224, 3)):
+    """
+         返回在 ImageNet 训练好的网络模型
 
+         args:
+             arch: str, 模型名字, 
+                        eg: 'xception'
+             input_shape, tuple, 模型输入维度, 
+                        eg: (224, 224, 3)
 
-def choice_build_fn(model_name):
-    if model_name.lower() == 'xception':
-        return build_xception_feature_extraction
+         return:
+              model, keras model, 一个没有被freeze的网络模型
+
+    """
+    arch_name = arch_name.lower()
+    arch_set = {'xception', 'vgg16', 'vgg19', 'resnet50', 'inception_v3'}
+    if arch_name == 'xception':
+        model = applications.Xception(include_top=True, weights='imagenet', input_shape=input_shape)
+    elif arch_name == 'vgg16':
+        model = applications.VGG16(include_top=True, weights='imagenet', input_shape=input_shape)
+    elif arch_name == 'vgg19':
+        model = applications.VGG19(include_top=True, weights='imagenet', input_shape=input_shape)
+    elif arch_name == 'resnet50':
+        model = applications.ResNet50(include_top=True, weights='imagenet', input_shape=input_shape)
+    elif arch_name == 'inception_v3':
+        model = applications.InceptionV3(include_top=True, weights='imagenet', input_shape=input_shape)
     else:
-        raise RuntimeError()
+        raise ValueError('只能使用以下网络结构 \n{}\n'.format(arch_set))
+    build_model(model)
+    return model
 
 
-class FTConvLearner:
+def finetuning(model, batches):
+    """根据我们给的数据对模型网络进行更改
 
-    # TODO: Supoort regression problems
+       args:
+            model: keras model
+            batches: keras DirectoryIterator
+        returns:
+            base_model: keras model, 作为 feature extractor返回
+            model: keras model
+    """
+    n_classes = len(batches.class_indices)
+    # 将最后一层输出层丢弃
+    for layer in model.layers:
+        layer.trainable = False
+    model.layers.pop(-1)
+    _input = model.input
+    # 不能使用 model.output
+    x = model.layers[-1].output
+    x = layers.Dense(n_classes, activation='softmax')(x)
+    ftmodel = models.Model(inputs=[_input], outputs=[x])
+    build_model(ftmodel)
+    return ftmodel
 
-    def __init__(self, class_indices, init=True, use_model_name='xception', shape=(224, 224, 3), optimizer=None, loss=None, metrics=None):
-        """"
-            model_name, str: 
-                              which model to choice
-            class_incices, dict: 
-                              a dictionary for classes mapping 
-                              like: {'dog': 0, 'cat': 1}
-        """
 
-        self.use_model_name = use_model_name
-        self.shape = shape
-        self.target_size = (shape[0], shape[1])
-        self.class_indices = class_indices
-        # 导出 Estimator 的时候需要
-        self.input_name = 'img_input'
+def fit_d(model, batches, valid_batches, epochs, callbacks=None):
+    """模型训练"""
+    model.fit_generator(batches, steps_per_epoch=batches.n // batches.batch_size,
+                        validation_data=valid_batches, validation_steps=valid_batches.n // valid_batches.batch_size,
+                        epochs=epochs, callbacks=callbacks)
 
-        self.optimizer = 'adam' if not optimizer else optimizer
-        self.loss = 'categorical_crossentropy' if not loss else loss
-        self.metrics = ['accuracy'] if not metrics else metrics
 
-        self.model, self.base_model = None, None
-        if init:
-            self._init_model()
-            self._build_model()
+def predict_d(model, batches):
+    """模型预测"""
+    y_prob = model.predict_generator(batches)
+    y_pred = np.argmax(y_prob, axis=1)
+    return y_prob, y_pred
 
-    def _init_model(self):
-        self.build_fn = choice_build_fn(self.use_model_name)
-        self.model, self.base_model = self.build_fn(target_size=self.target_size, class_indices=self.class_indices)
 
-    def _build_model(self):
-        if self.model is None:
-            raise RuntimeError()
-        self.model.compile(self.optimizer, self.loss, self.metrics)
+def save_d(model, path='./models'):
+    """模型保存"""
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, 'model.json'), 'wt') as f:
+        f.write(model.to_json())
+    model.save_weights(os.path.join(path, 'model.h5'))
 
-    def unfreeze(self):
-        self.unfreeze_to(0)
 
-    def unfreeze_to(self, n):
-        """ network arch Top2Bottom unfreeze layer
-        """
-        for layer in self.base_model.layers[n:]:
-            layer.trainable = True
-        self._build_model()
-
-    def finetuning(self, batches, valid_batches, epochs):
-        self.model.fit_generator(batches, steps_per_epoch=batches.n // batches.batch_size,
-                                 validation_data=valid_batches, validation_steps=valid_batches.n // valid_batches.batch_size,
-                                 epochs=epochs)
-
-    def save(self, path):
-        os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, 'model.json'), 'wt') as f:
-            f.write(self.model.to_json())
-        self.model.save_weights(os.path.join(path, 'model.h5'))
-
-    def load(self, path):
-        with open(os.path.join(path, 'model.json'), 'rt') as f:
-            json_string = f.read()
-        self.model = models.model_from_json(json_string)
-        self.model.load_weights(os.path.join(path, 'model.h5'))
-        self._build_model()
-
-    def predict_g(self, batches):
-        y_prob = self.model.predict_generator(batches)
-        y_pred = np.argmax(y_prob, axis=1)
-        return y_prob, y_pred
-
-    def to_estimator(self):
-        """
-            # TODO: 简单权重文件是否存在
-        """
-        # fix keras model to Estimator bug
-        # https://github.com/keras-team/keras/issues/9310#issuecomment-363236463
-        from tensorflow.python.keras._impl.keras import models
-
-        path = './models/'
-        with open(os.path.join(path, 'model.json'), 'rt') as f:
-            json_string = f.read()
-        self.model = models.model_from_json(json_string)
-        self.model.load_weights(os.path.join(path, 'model.h5'))
-        self._build_model()
-        est_model = tf.keras.estimator.model_to_estimator(self.model, model_dir='./est_models/')
-        return est_model
-
-    def __str__(self):
-        return 'Fine Tuning Model ({})'.format(self.use_model_name)
-
-    def __repr__(self):
-        return 'Fine Tuning Model ({})'.format(self.use_model_name)
+def load_d(path='./models'):
+    """模型加载"""
+    with open(os.path.join(path, 'model.json'), 'rt') as f:
+        json_string = f.read()
+    model = models.model_from_json(json_string)
+    model.load_weights(os.path.join(path, 'model.h5'))
